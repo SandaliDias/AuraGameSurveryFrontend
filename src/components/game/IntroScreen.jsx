@@ -62,10 +62,10 @@ const IntroScreen = () => {
           {state.userId ? (
             <>
               <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">
-                Welcome back, <span style={{ color: 'var(--primary-color)' }}>{state.userId}</span>!
+                Welcome <span style={{ color: 'var(--primary-color)' }}>{state.userId}</span>!
               </h2>
               <p className="text-gray-400 max-w-lg mx-auto leading-relaxed">
-                Ready for another round? Four quick brain games await!
+                First time here? Four quick games await!
               </p>
             </>
           ) : (
@@ -74,7 +74,7 @@ const IntroScreen = () => {
                 Ready to Challenge Yourself?
               </h2>
               <p className="text-gray-400 max-w-lg mx-auto leading-relaxed">
-                Four quick brain games await! Spot hidden patterns, test your focus, 
+                Four quick games await! Spot hidden patterns, test your focus, 
                 pop bubbles at lightning speed, and prove your digital smarts.
               </p>
             </>
