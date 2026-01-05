@@ -79,9 +79,17 @@ const MotorChallenge = () => {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
   
+  // Throttle display sync to reduce re-renders (every 100ms instead of every frame)
+  const lastDisplaySyncRef = useRef(0);
+  const DISPLAY_SYNC_INTERVAL = 100; // ms
+  
   // Sync display state from refs periodically during gameplay
-  const syncDisplayStats = useCallback(() => {
-    setDisplayRoundStats({ ...roundStatsRef.current });
+  const syncDisplayStats = useCallback((force = false) => {
+    const now = Date.now();
+    if (force || now - lastDisplaySyncRef.current >= DISPLAY_SYNC_INTERVAL) {
+      lastDisplaySyncRef.current = now;
+      setDisplayRoundStats({ ...roundStatsRef.current });
+    }
   }, []);
   
   const generateBubbleId = () => `bubble_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -156,7 +164,21 @@ const MotorChallenge = () => {
     }
   }, [perfMetrics, recordIncorrectAnswer, syncDisplayStats]);
   
-  const handleBubbleClick = (bubble, event) => {
+  // Track recently popped bubbles to prevent double-pop from touchpads
+  const poppedBubblesRef = useRef(new Set());
+  
+  const handleBubblePop = useCallback((bubble, event) => {
+    // Prevent double-pop from touchpad/multi-input devices
+    if (poppedBubblesRef.current.has(bubble.id)) {
+      return;
+    }
+    poppedBubblesRef.current.add(bubble.id);
+    
+    // Clean up old entries after 100ms
+    setTimeout(() => {
+      poppedBubblesRef.current.delete(bubble.id);
+    }, 100);
+    
     perfMetrics.recordInputEvent(event.evt?.timeStamp);
     
     if (motorTrackerRef.current) {
@@ -173,8 +195,8 @@ const MotorChallenge = () => {
       roundStatsRef.current.streak
     );
     
-    // Sync to display state
-    syncDisplayStats();
+    // Force sync to display state immediately on hit
+    syncDisplayStats(true);
     
     // Record as correct to build streak in game context
     const reactionTime = Date.now() - bubble.spawnTime;
@@ -182,7 +204,7 @@ const MotorChallenge = () => {
     
     bubblesRef.current = bubblesRef.current.filter((b) => b.id !== bubble.id);
     setBubbles([...bubblesRef.current]);
-  };
+  }, [perfMetrics, syncDisplayStats, recordCorrectAnswer]);
   
   const startRound = () => {
     setShowRoundIntro(false);
@@ -513,8 +535,8 @@ const MotorChallenge = () => {
                 shadowColor={primaryColor}
                 shadowBlur={15}
                 shadowOpacity={0.5}
-                onClick={(e) => handleBubbleClick(bubble, e)}
-                onTap={(e) => handleBubbleClick(bubble, e)}
+                onPointerDown={(e) => handleBubblePop(bubble, e)}
+                onTouchStart={(e) => handleBubblePop(bubble, e)}
               />
             ))}
           </Layer>

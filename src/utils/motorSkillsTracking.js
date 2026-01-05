@@ -26,14 +26,18 @@ class MotorSkillsTracker {
     // Pointer samples buffer for kinematics
     this.pointerSamples = [];
     this.lastSampleTime = 0;
-    this.SAMPLE_INTERVAL = 16; // ~60Hz sampling
+    this.SAMPLE_INTERVAL = 33; // ~30Hz sampling (reduced from 60Hz to improve performance)
     this.isPointerDown = false;
     
     // Batching for performance
     this.interactionBuffer = [];
-    this.BATCH_SIZE = 10;
-    this.BATCH_TIMEOUT = 2000; // 2 seconds
+    this.BATCH_SIZE = 15; // Increased batch size to reduce flush frequency
+    this.BATCH_TIMEOUT = 3000; // 3 seconds
     this.batchTimer = null;
+    
+    // Throttle pointer move tracking
+    this.lastMoveTrackTime = 0;
+    this.MOVE_TRACK_INTERVAL = 33; // ~30Hz for move tracking
     
   }
   
@@ -92,9 +96,16 @@ class MotorSkillsTracker {
   // Track movement (for velocity, acceleration, trajectory)
   trackPointerMove(event) {
     const now = Date.now();
+    
+    // Throttle move tracking for better performance
+    if (now - this.lastMoveTrackTime < this.MOVE_TRACK_INTERVAL) {
+      return;
+    }
+    this.lastMoveTrackTime = now;
+    
     const coords = this.getCoordinates(event);
     
-    // Store normalized pointer sample at ~60Hz for kinematics
+    // Store normalized pointer sample for kinematics
     if (now - this.lastSampleTime >= this.SAMPLE_INTERVAL) {
       const screenWidth = window.innerWidth;
       const screenHeight = window.innerHeight;
@@ -109,6 +120,11 @@ class MotorSkillsTracker {
       });
       
       this.lastSampleTime = now;
+      
+      // Limit pointer samples buffer to prevent memory buildup
+      if (this.pointerSamples.length > 1000) {
+        this.pointerSamples = this.pointerSamples.slice(-800);
+      }
     }
     
     // Calculate velocity and acceleration for local tracking
@@ -137,13 +153,18 @@ class MotorSkillsTracker {
           this.velocityHistory.shift();
         }
         
-        // Add to trajectory
+        // Add to trajectory (limit size)
         this.trajectoryPoints.push({
           ...coords,
           time: now,
           velocity,
           acceleration,
         });
+        
+        // Limit trajectory points to prevent memory buildup
+        if (this.trajectoryPoints.length > 100) {
+          this.trajectoryPoints = this.trajectoryPoints.slice(-80);
+        }
       }
     }
     
@@ -488,4 +509,3 @@ class MotorSkillsTracker {
 }
 
 export default MotorSkillsTracker;
-
